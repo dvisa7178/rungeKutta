@@ -1,4 +1,4 @@
-clear all; clc;
+clear all;clc
 
 %% Parâmetros 
 a1 = 1;      a2 = 1;
@@ -29,8 +29,10 @@ n = length(t);
 Y = y0;
 y = y0;
 
-tau1 = zeros(1,101);
-tau2 = zeros(1,101);
+% tau1 = zeros(1,101);
+% tau2 = zeros(1,101);
+
+theta_ponto_ponto = [25;25];
 
 % 2 coisas: passo do theta e passo do tempo(ja defini --> fazer por int)
 % supor de 0 a 1 grau (theta) em meio ao 0 a 1, integro o sistema de 0 a 1 
@@ -43,9 +45,6 @@ for i = 1:n-1
     %provavelmente colocar um for aqui dentro 
     %um para a mudança do ângulo(por fora) e outro para integração(por
     %dentro)
-
-    theta1_ponto_ponto = 25;
-    theta2_ponto_ponto = 25;
 
     b11 = I_l1 + m_l1*(l1^2) + (k_r1^2)*I_m1 + I_l2 + m_l2*(a1^2 + l2^2 + 2*a1*l2*cos(y(2,i))) + I_m2 + m_m2*(a1^2);
     b12 = I_l2 + m_l2*(l2^2 + a1*l2*cos(y(2,i))) + k_r2*I_m2;
@@ -68,23 +67,36 @@ for i = 1:n-1
     g_vet = [g1;g2];
     gravidade(1:2,i+1) = g_vet;
 
-    u1 = (I_l1 + m_l1*(l1^2) + (k_r1^2)*I_m1 + I_l2 + m_l2*(a1^2 + l2^2 + 2*a1*l2*cos(y(2,i))) +I_m2 + m_m2*(a1^2))*theta1_ponto_ponto + (I_l2 + m_l2*(l2^2 + a1*l2*cos(y(2,i))) + k_r2*I_m2)*theta2_ponto_ponto... 
+    u1 = (I_l1 + m_l1*(l1^2) + (k_r1^2)*I_m1 + I_l2 + m_l2*(a1^2 + l2^2 + 2*a1*l2*cos(y(2,i))) +I_m2 + m_m2*(a1^2))*theta_ponto_ponto(1) + (I_l2 + m_l2*(l2^2 + a1*l2*cos(y(2,i))) + k_r2*I_m2)*theta_ponto_ponto(2)... 
         -2*m_l2*a1*l2*sin(y(2,i))*y(3,i)*y(4,i) - m_l2*a1*l2*sin(y(2,i))*y(4,i)^2 + (m_l1*l1 + m_m2*a1 + m_l2*a1)*g*cos(y(1,i)) + m_l2*l2*g*cos(y(1,i)+y(2,i));
 
-    u2 = (I_l2 + m_l2*(l2^2 + a1*l2*cos(y(2,i))) + k_r2*I_m2)*theta1_ponto_ponto + (I_l2 + m_l2*l2^2 + k_r2^2*I_m2)*theta2_ponto_ponto + m_l2*a1*l2*sin(y(2,i))*y(3,i)^2 ...
+    u2 = (I_l2 + m_l2*(l2^2 + a1*l2*cos(y(2,i))) + k_r2*I_m2)*theta_ponto_ponto(1) + (I_l2 + m_l2*l2^2 + k_r2^2*I_m2)*theta_ponto_ponto(2) + m_l2*a1*l2*sin(y(2,i))*y(3,i)^2 ...
         +m_l2*l2*g*cos(y(1,i)+y(2,i));
 
-    
     tau1(i) = u1;
     tau2(i) = u2;
 
     u = [u1;u2];
+
+    theta_ponto_ponto = inv(Mi)*(u - C*y(3:4,i) - g_vet);  
+    aceleracao(:,i) = theta_ponto_ponto;
+    %aqui? porque não funciona 
+
     A = [zeros(2,2), eye(2,2); inv(Mi)*0, -inv(Mi)*C];
     B = [zeros(2,2);inv(Mi)];
 
     Y = rungekutta(t(i),Y,h,A,B,g_vet,u);
-    t(i+1) = t(i) + h;
     y(1:4,i+1) = Y;
+
+    % if y(1,i+1) >= pi/2 || y(2,i+1) >= pi/2
+    %     break;  % Sai do loop se o ângulo atingiu pi/2
+    % end
+
+    t(i+1) = t(i) + h;
+
+    %sai da equação da dinâmica --> B*q_dot_dot + C*q_dot + g = tau
+    % theta1_ponto_ponto = inv(Mi)*(u - C*y(3,i) - g_vet);
+    % theta2_ponto_ponto = inv(Mi)*(u - C*y(4,i) - g_vet);
     
 end
 % 
@@ -144,6 +156,13 @@ end
  ylabel('[rad/s]')
 
  figure(6);
+ plot(t,,'r',t,theta_ponto_ponto(2,:),'g')
+ title('Aceleração das juntas')
+ legend('junta_1','junta_2')
+ xlabel('[s]')
+ ylabel('[rad/s^2]')
+
+ figure(7);
  plot(t,tau1,'r',t,tau2,'g')
  title('Torque das juntas')
  legend('junta_1','junta_2')
